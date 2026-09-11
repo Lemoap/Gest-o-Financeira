@@ -43,11 +43,11 @@ export function saveAllUsers(users) {
  */
 export async function initAuth() {
   let users = getAllUsers()
-  
+
   if (users.length === 0) {
     const adminHash = await hashPassword('123456')
     const adminRecoveryHash = await hashPassword('admin123')
-    
+
     const defaultUser = {
       id: 'usr_admin',
       name: 'Administrador (Planilha)',
@@ -170,7 +170,7 @@ export async function registerUser({ name, username, password, recoveryKey, copy
           id: monthKey,
           year: currentYear,
           month: currentMonth,
-          name: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][currentMonth],
+          name: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][currentMonth],
           initialBalance: 0,
           incomes: [],
           creditCardSicrediExpenses: [],

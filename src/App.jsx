@@ -14,12 +14,12 @@ import { initialFinancialData } from './data/initialData'
 import { MONTH_NAMES, formatCurrency } from './utils/formatters'
 import { initAuth, logoutUser, getUserData, saveUserData, getPendingUsersCount } from './utils/auth'
 import { getAppSettings, saveAppSettings, resetAppSettings } from './utils/appSettings'
-import { 
-  propagateNewInstallment, 
-  updateInstallmentAcrossMonths, 
-  deleteInstallmentAcrossMonths, 
+import {
+  propagateNewInstallment,
+  updateInstallmentAcrossMonths,
+  deleteInstallmentAcrossMonths,
   syncAllInstallments,
-  ensureMonthExists 
+  ensureMonthExists
 } from './utils/installmentEngine'
 import { FileSpreadsheet } from 'lucide-react'
 
@@ -29,7 +29,7 @@ export default function App() {
   // Usuário autenticado na sessão
   const [currentUser, setCurrentUser] = useState(null)
   const [authChecking, setAuthChecking] = useState(true)
-  
+
   // Configurações visuais e de marca do App
   const [appSettings, setAppSettings] = useState(getAppSettings)
 
@@ -46,7 +46,7 @@ export default function App() {
 
   // Modo escuro
   const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem(THEME_KEY) === 'dark' || 
+    return localStorage.getItem(THEME_KEY) === 'dark' ||
       (!localStorage.getItem(THEME_KEY) && window.matchMedia('(prefers-color-scheme: dark)').matches)
   })
 
@@ -102,7 +102,7 @@ export default function App() {
   useEffect(() => {
     if (currentUser?.id) {
       const realMonth = new Date().getMonth()     // mês real atual (0-based)
-      const realYear  = new Date().getFullYear()
+      const realYear = new Date().getFullYear()
 
       const userSpecificData = getUserData(currentUser.id)
       if (userSpecificData && userSpecificData.months) {
@@ -178,18 +178,18 @@ export default function App() {
   const propagateRecurringToNewMonth = (monthsCopy, year, month) => {
     const key = `${year}-${month}`
     if (monthsCopy[key]) return // Mês já existe, não sobrescreve
-    
+
     // Busca mês anterior
     let prevMonth = month - 1
     let prevYear = year
     if (prevMonth < 0) { prevMonth = 11; prevYear = year - 1 }
     const prevKey = `${prevYear}-${prevMonth}`
     const prevData = monthsCopy[prevKey]
-    
+
     const recurringFromPrev = prevData?.recurringExpenses
       ? prevData.recurringExpenses.map(item => ({ ...item, paid: false }))
       : []
-    
+
     ensureMonthExists(monthsCopy, year, month)
     if (recurringFromPrev.length > 0) {
       monthsCopy[key] = { ...monthsCopy[key], recurringExpenses: recurringFromPrev }
@@ -333,8 +333,8 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <AuthScreen 
-        onLoginSuccess={(user) => { setCurrentUser(user); refreshPendingCount() }} 
+      <AuthScreen
+        onLoginSuccess={(user) => { setCurrentUser(user); refreshPendingCount() }}
         appSettings={appSettings}
       />
     )
@@ -342,9 +342,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors pb-16">
-      
+
       {/* Topo Navegação */}
-      <Navbar 
+      <Navbar
         currentUser={currentUser}
         appSettings={appSettings}
         onLogout={handleLogout}
@@ -364,7 +364,7 @@ export default function App() {
       />
 
       {/* Modal de Edição de Perfil */}
-      <ProfileModal 
+      <ProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         currentUser={currentUser}
@@ -372,7 +372,7 @@ export default function App() {
       />
 
       {/* Modal Administrativo de Gerenciamento e Aprovação de Usuários */}
-      <UserManagementModal 
+      <UserManagementModal
         isOpen={isUserManagementOpen}
         onClose={() => setIsUserManagementOpen(false)}
         onUsersChanged={refreshPendingCount}
@@ -388,11 +388,11 @@ export default function App() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
-        
+
         {/* Banner Informativo */}
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-teal-900/10 relative overflow-hidden">
           <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          
+
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-white text-xs font-semibold backdrop-blur-md mb-3 border border-white/20">
@@ -420,7 +420,7 @@ export default function App() {
         </div>
 
         {/* 1. Indicadores Principais (Cards) */}
-        <DashboardCards 
+        <DashboardCards
           initialBalance={currentMonthData.initialBalance || 0}
           totalIncomes={totalIncomes}
           totalExpenses={totalExpenses}
@@ -431,7 +431,7 @@ export default function App() {
         />
 
         {/* 2. Análise Gráfica & Projeções com Sicredi e Nubank */}
-        <ChartsView 
+        <ChartsView
           totalIncomes={totalIncomes}
           ccSicrediTotal={ccSicrediTotal}
           ccNubankTotal={ccNubankTotal}
@@ -444,22 +444,22 @@ export default function App() {
 
         {/* 3. Seções de Lançamento */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
+
           {/* Coluna 1: Entradas e Contas Fixas */}
           <div className="space-y-8">
-            <IncomeSection 
+            <IncomeSection
               incomes={currentMonthData.incomes || []}
               onUpdateIncomes={(newIncomes) => updateCurrentMonth({ incomes: newIncomes })}
             />
 
-            <RecurringExpensesSection 
+            <RecurringExpensesSection
               expenses={currentMonthData.recurringExpenses || []}
               onUpdateExpenses={(newRec) => updateCurrentMonth({ recurringExpenses: newRec })}
               currentMonth={currentMonth}
               currentYear={currentYear}
             />
 
-            <DebitExpensesSection 
+            <DebitExpensesSection
               expenses={currentMonthData.debitExpenses || []}
               onUpdateExpenses={(newDeb) => updateCurrentMonth({ debitExpenses: newDeb })}
             />
@@ -468,7 +468,7 @@ export default function App() {
           {/* Coluna 2: Cartões de Crédito com Propagação Automática */}
           <div className="space-y-8">
             {/* 1. Cartão Sicredi */}
-            <CreditCardSection 
+            <CreditCardSection
               title="Parcelas de Cartão de Crédito (CC) - Sicredi"
               subtitle="Compras parceladas e faturas no Cartão Sicredi"
               cardBrand="Sicredi"
@@ -480,7 +480,7 @@ export default function App() {
             />
 
             {/* 2. Cartão Nubank */}
-            <CreditCardSection 
+            <CreditCardSection
               title="Parcelas de Cartão de Crédito (CC) - Nubank"
               subtitle="Compras parceladas e faturas no Cartão Nubank"
               cardBrand="Nubank"

@@ -560,3 +560,45 @@ async function buscarTransacoes() {
 
 // Executa a busca assim que a página abre para trazer os dados salvos
 buscarTransacoes();
+
+async function buscarTransacoes() {
+  const tbodyEl = document.querySelector('#tabela-transacoes tbody');
+  tbodyEl.innerHTML = '<tr><td colspan="4">Carregando...</td></tr>';
+
+  // Busca as transações ordenando da mais recente para a mais antiga
+  const { data: transacoes, error } = await _supabase
+    .from('transacoes')
+    .select('*')
+    .order('data', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao buscar:', error);
+    tbodyEl.innerHTML = '<tr><td colspan="4">Erro ao carregar dados.</td></tr>';
+    return;
+  }
+
+  // Limpa a tabela antes de preencher
+  tbodyEl.innerHTML = '';
+
+  if (transacoes.length === 0) {
+    tbodyEl.innerHTML = '<tr><td colspan="4">Nenhuma transação cadastrada.</td></tr>';
+    return;
+  }
+
+  // Cria uma linha (tr) para cada transação encontrada no Supabase
+  transacoes.forEach(t => {
+    const linha = document.createElement('tr');
+
+    // Formata o valor com duas casas decimais
+    const valorFormatado = parseFloat(t.valor).toFixed(2);
+
+    linha.innerHTML = `
+            <td>${t.data}</td>
+            <td>${t.descricao}</td>
+            <td>${t.tipo}</td>
+            <td>R$ ${valorFormatado}</td>
+        `;
+
+    tbodyEl.appendChild(linha);
+  });
+}

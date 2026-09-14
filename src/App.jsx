@@ -498,3 +498,65 @@ export default function App() {
     </div>
   )
 }
+// 1. Configuração do Supabase (substitua pelos seus dados reais)
+const SUPABASE_URL = 'SUA_URL_DO_PROJETO';
+const SUPABASE_ANON_KEY = 'SUA_CHAVE_ANON_AQUI';
+
+const { createClient } = supabase;
+const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// 2. Ouvinte de envio do formulário
+const form = document.getElementById('form-transacao');
+
+form.addEventListener('submit', async function (evento) {
+  evento.preventDefault(); // Impede a página de recarregar sozinha
+
+  // Pega os valores digitados nos inputs da tela
+  const descricao = document.getElementById('desc').value;
+  const valor = parseFloat(document.getElementById('valor').value);
+  const tipo = document.getElementById('tipo').value;
+  const data = document.getElementById('data').value;
+
+  // Envia para o Supabase (a nossa tabela 'transacoes')
+  const { error } = await _supabase
+    .from('transacoes')
+    .insert([{ descricao, valor, tipo, data }]);
+
+  if (error) {
+    console.error('Erro ao salvar:', error);
+    alert('Erro ao salvar transação!');
+  } else {
+    alert('Transação salva com sucesso!');
+    form.reset(); // Limpa os campos do formulário
+    buscarTransacoes(); // Atualiza a lista na tela
+  }
+});
+
+// 3. Função para buscar e exibir as transações na tela
+async function buscarTransacoes() {
+  const listaEl = document.getElementById('lista-transacoes');
+  listaEl.innerHTML = 'Carregando...';
+
+  const { data: transacoes, error } = await _supabase
+    .from('transacoes')
+    .select('*');
+
+  if (error) {
+    console.error('Erro ao buscar:', error);
+    listaEl.innerHTML = 'Erro ao carregar dados.';
+    return;
+  }
+
+  // Limpa a lista visual antes de preencher
+  listaEl.innerHTML = '';
+
+  // Desenha cada item na tela
+  transacoes.forEach(t => {
+    const item = document.createElement('li');
+    item.textContent = `${t.data} - ${t.descricao}: R$ ${t.valor} (${t.tipo})`;
+    listaEl.appendChild(item);
+  });
+}
+
+// Executa a busca assim que a página abre para trazer os dados salvos
+buscarTransacoes();

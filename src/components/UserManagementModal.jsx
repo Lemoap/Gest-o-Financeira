@@ -29,8 +29,8 @@ export function UserManagementModal({ isOpen, onClose, onUsersChanged }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [message, setMessage] = useState(null)
 
-  const reloadUsers = () => {
-    const list = getAllUsers()
+  const reloadUsers = async () => {
+    const list = await getAllUsers()
     setUsers(list)
     if (onUsersChanged) onUsersChanged()
   }
@@ -44,16 +44,16 @@ export function UserManagementModal({ isOpen, onClose, onUsersChanged }) {
 
   if (!isOpen) return null
 
-  const handleApprove = (userId, name) => {
-    approveUser(userId)
-    reloadUsers()
+  const handleApprove = async (userId, name) => {
+    await approveUser(userId)
+    await reloadUsers()
     setMessage({ type: 'success', text: `O usuário ${name} foi aprovado com sucesso!` })
   }
 
-  const handleToggle = (userId, name, currentStatus) => {
+  const handleToggle = async (userId, name, currentStatus) => {
     try {
-      toggleUserStatus(userId)
-      reloadUsers()
+      await toggleUserStatus(userId)
+      await reloadUsers()
       const nextText = currentStatus === 'active' ? 'suspenso' : 'reativado'
       setMessage({ type: 'info', text: `O acesso de ${name} foi ${nextText}.` })
     } catch (err) {
@@ -61,14 +61,14 @@ export function UserManagementModal({ isOpen, onClose, onUsersChanged }) {
     }
   }
 
-  const handleRoleToggle = (userId, name, currentRole) => {
+  const handleRoleToggle = async (userId, name, currentRole) => {
     const targetRole = currentRole === 'admin' ? 'user' : 'admin'
     const roleName = targetRole === 'admin' ? 'Administrador' : 'Usuário Comum'
     
     if (confirm(`Deseja alterar o cargo de ${name} para ${roleName}?`)) {
       try {
-        setUserRole(userId, targetRole)
-        reloadUsers()
+        await setUserRole(userId, targetRole)
+        await reloadUsers()
         setMessage({ type: 'success', text: `O cargo de ${name} agora é: ${roleName}.` })
       } catch (err) {
         setMessage({ type: 'error', text: err.message })
@@ -92,12 +92,12 @@ export function UserManagementModal({ isOpen, onClose, onUsersChanged }) {
     }
   }
 
-  const handleEditName = (userId, currentName) => {
+  const handleEditName = async (userId, currentName) => {
     const newName = prompt('Novo nome para o usuário:', currentName)
     if (newName !== null && newName.trim()) {
       try {
-        adminUpdateUserName(userId, newName.trim())
-        reloadUsers()
+        await adminUpdateUserName(userId, newName.trim())
+        await reloadUsers()
         setMessage({ type: 'success', text: `Nome do usuário atualizado para: ${newName.trim()}` })
       } catch (err) {
         setMessage({ type: 'error', text: err.message })
@@ -105,11 +105,11 @@ export function UserManagementModal({ isOpen, onClose, onUsersChanged }) {
     }
   }
 
-  const handleDelete = (userId, name) => {
+  const handleDelete = async (userId, name) => {
     if (confirm(`Tem certeza que deseja excluir o usuário ${name} e todos os seus dados? Esta ação não pode ser desfeita.`)) {
       try {
-        deleteUser(userId)
-        reloadUsers()
+        await deleteUser(userId)
+        await reloadUsers()
         setMessage({ type: 'success', text: `Usuário ${name} excluído.` })
       } catch (err) {
         setMessage({ type: 'error', text: err.message })

@@ -1,12 +1,11 @@
 import { initialFinancialData } from '../data/initialData'
+import { db } from './firebase'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 
 const USERS_STORAGE_KEY = 'fincontrol_users_v1'
 const SESSION_STORAGE_KEY = 'fincontrol_session_v1'
 const USER_DATA_PREFIX = 'fincontrol_data_user_'
 
-/**
- * Gera hash SHA-256 seguro da string usando a Crypto API nativa do navegador
- */
 export async function hashPassword(text) {
   if (!text) return ''
   const encoder = new TextEncoder()
@@ -16,33 +15,40 @@ export async function hashPassword(text) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-/**
- * Retorna todos os usuários cadastrados
- */
-export function getAllUsers() {
+export async function getAllUsers() {
   try {
-    const raw = localStorage.getItem(USERS_STORAGE_KEY)
-    if (raw) {
-      return JSON.parse(raw)
+    const docRef = doc(db, 'app_config', 'users_list')
+    const docSnap = await getDoc(docRef)
+    if (docSnap.exists()) {
+      const data = docSnap.data()
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(data.users || []))
+      return data.users || []
     }
   } catch (e) {
-    console.error('Erro ao ler usuários', e)
+    console.error('Erro ao ler usuários do Firestore, usando local fallback:', e)
   }
+  
+  // Fallback
+  try {
+    const raw = localStorage.getItem(USERS_STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch(e) {}
   return []
 }
 
-/**
- * Salva a lista de usuários
- */
-export function saveAllUsers(users) {
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
+export async function saveAllUsers(users) {
+  try {
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
+    const docRef = doc(db, 'app_config', 'users_list')
+    const cleanUsers = JSON.parse(JSON.stringify(users))
+    await setDoc(docRef, { users: cleanUsers })
+  } catch(e) {
+    console.error('Erro ao salvar usuários', e)
+  }
 }
 
-/**
- * Inicializa a conta padrão 'admin' caso nenhuma conta exista ainda.
- */
 export async function initAuth() {
-  let users = getAllUsers()
+  let users = await getAllUsers()
 
   if (users.length === 0) {
     const adminHash = await hashPassword('123456')
@@ -59,42 +65,28 @@ export async function initAuth() {
       createdAt: new Date().toISOString()
     }
     users = [defaultUser]
-    saveAllUsers(users)
+    await saveAllUsers(users)
 
-    // Se já existiam dados salvos nas chaves antigas, migra para este usuário
     let legacyData = null
     try {
       const v2 = localStorage.getItem('fincontrol_data_v2')
       const v1 = localStorage.getItem('fincontrol_data_v1')
       if (v2) legacyData = JSON.parse(v2)
       else if (v1) legacyData = JSON.parse(v1)
-    } catch (err) {
-      console.warn('Erro ao carregar dados antigos para migração', err)
-    }
+    } catch (err) {}
 
     const dataToSave = legacyData || initialFinancialData
-    saveUserData(defaultUser.id, dataToSave)
+    await saveUserData(defaultUser.id, dataToSave)
   } else {
-    // Garante compatibilidade retroativa com campos role, status e recoveryKey
     let updated = false
     for (const u of users) {
-      if (!u.role) {
-        u.role = u.username === 'admin' ? 'admin' : 'user'
-        updated = true
-      }
-      if (!u.status) {
-        u.status = 'active'
-        updated = true
-      }
-      if (!u.recoveryKeyHash) {
-        u.recoveryKeyHash = await hashPassword('admin123')
-        updated = true
-      }
+      if (!u.role) { u.role = u.username === 'admin' ? 'admin' : 'user'; updated = true }
+      if (!u.status) { u.status = 'active'; updated = true }
+      if (!u.recoveryKeyHash) { u.recoveryKeyHash = await hashPassword('admin123'); updated = true }
     }
-    if (updated) saveAllUsers(users)
+    if (updated) await saveAllUsers(users)
   }
 
-  // Verifica se já há uma sessão salva válida e ativa
   try {
     const sessionRaw = localStorage.getItem(SESSION_STORAGE_KEY)
     if (sessionRaw) {
@@ -112,16 +104,11 @@ export async function initAuth() {
         clearSession()
       }
     }
-  } catch (e) {
-    console.error('Erro ao ler sessão', e)
-  }
+  } catch (e) {}
 
   return null
 }
 
-/**
- * Registra um novo usuário (sempre pending até aprovação do admin).
- */
 export async function registerUser({ name, username, password, recoveryKey, copyTemplate = false }) {
   const cleanUsername = username.trim().toLowerCase()
   const cleanName = name.trim()
@@ -130,7 +117,7 @@ export async function registerUser({ name, username, password, recoveryKey, copy
   if (!cleanUsername) throw new Error('O nome de usuário é obrigatório.')
   if (!password || password.length < 4) throw new Error('A senha deve ter pelo menos 4 caracteres.')
 
-  const users = getAllUsers()
+  const users = await getAllUsers()
   if (users.some(u => u.username.toLowerCase() === cleanUsername)) {
     throw new Error('Este nome de usuário já está em uso. Escolha outro.')
   }
@@ -145,14 +132,13 @@ export async function registerUser({ name, username, password, recoveryKey, copy
     passwordHash,
     recoveryKeyHash,
     role: 'user',
-    status: 'pending', // Exige aprovação de administrador
+    status: 'pending',
     createdAt: new Date().toISOString()
   }
 
   users.push(newUser)
-  saveAllUsers(users)
+  await saveAllUsers(users)
 
-  // Inicializa base financeira isolada
   let initialUserFinancialData
   if (copyTemplate) {
     initialUserFinancialData = JSON.parse(JSON.stringify(initialFinancialData))
@@ -184,7 +170,7 @@ export async function registerUser({ name, username, password, recoveryKey, copy
     }
   }
 
-  saveUserData(newUser.id, initialUserFinancialData)
+  await saveUserData(newUser.id, initialUserFinancialData)
 
   return {
     pendingApproval: true,
@@ -197,30 +183,18 @@ export async function registerUser({ name, username, password, recoveryKey, copy
   }
 }
 
-/**
- * Autentica o usuário pelo login e senha
- */
 export async function loginUser({ username, password }) {
   const cleanUsername = username.trim().toLowerCase()
-  const users = getAllUsers()
+  const users = await getAllUsers()
   const user = users.find(u => u.username.toLowerCase() === cleanUsername)
 
-  if (!user) {
-    throw new Error('Usuário ou senha inválidos.')
-  }
+  if (!user) throw new Error('Usuário ou senha inválidos.')
 
   const inputHash = await hashPassword(password)
-  if (user.passwordHash !== inputHash) {
-    throw new Error('Usuário ou senha inválidos.')
-  }
+  if (user.passwordHash !== inputHash) throw new Error('Usuário ou senha inválidos.')
 
-  if (user.status === 'pending') {
-    throw new Error('Sua conta foi cadastrada, mas está aguardando aprovação do Administrador antes do primeiro acesso.')
-  }
-
-  if (user.status === 'blocked') {
-    throw new Error('Esta conta foi desativada ou suspensa pelo Administrador.')
-  }
+  if (user.status === 'pending') throw new Error('Sua conta foi cadastrada, mas está aguardando aprovação do Administrador antes do primeiro acesso.')
+  if (user.status === 'blocked') throw new Error('Esta conta foi desativada ou suspensa pelo Administrador.')
 
   const sessionObj = {
     id: user.id,
@@ -233,40 +207,23 @@ export async function loginUser({ username, password }) {
   return sessionObj
 }
 
-/**
- * Atualiza o perfil do próprio usuário
- */
 export async function updateProfile(userId, { name, currentPassword, newPassword, recoveryKey }) {
-  const users = getAllUsers()
+  const users = await getAllUsers()
   const user = users.find(u => u.id === userId)
   if (!user) throw new Error('Usuário não encontrado.')
 
-  // Se for alterar a senha, valida a senha atual
   if (newPassword && newPassword.trim()) {
-    if (!currentPassword) {
-      throw new Error('Digite sua senha atual para confirmar a alteração de senha.')
-    }
+    if (!currentPassword) throw new Error('Digite sua senha atual para confirmar a alteração de senha.')
     const currentHash = await hashPassword(currentPassword)
-    if (user.passwordHash !== currentHash) {
-      throw new Error('Senha atual incorreta.')
-    }
-    if (newPassword.trim().length < 4) {
-      throw new Error('A nova senha deve ter pelo menos 4 caracteres.')
-    }
+    if (user.passwordHash !== currentHash) throw new Error('Senha atual incorreta.')
+    if (newPassword.trim().length < 4) throw new Error('A nova senha deve ter pelo menos 4 caracteres.')
     user.passwordHash = await hashPassword(newPassword.trim())
   }
 
-  // Altera o nome se fornecido
-  if (name && name.trim()) {
-    user.name = name.trim()
-  }
+  if (name && name.trim()) user.name = name.trim()
+  if (recoveryKey && recoveryKey.trim()) user.recoveryKeyHash = await hashPassword(recoveryKey.trim())
 
-  // Altera a chave de recuperação se fornecida
-  if (recoveryKey && recoveryKey.trim()) {
-    user.recoveryKeyHash = await hashPassword(recoveryKey.trim())
-  }
-
-  saveAllUsers(users)
+  await saveAllUsers(users)
 
   const sessionObj = {
     id: user.id,
@@ -279,98 +236,70 @@ export async function updateProfile(userId, { name, currentPassword, newPassword
   return sessionObj
 }
 
-/**
- * Concede ou revoga cargo de Administrador para um usuário
- */
-export function setUserRole(userId, newRole) {
-  const users = getAllUsers()
+export async function setUserRole(userId, newRole) {
+  const users = await getAllUsers()
   const user = users.find(u => u.id === userId)
   if (!user) throw new Error('Usuário não encontrado.')
 
-  if (user.username === 'admin' && newRole !== 'admin') {
-    throw new Error('O Administrador principal não pode ser rebaixado.')
-  }
+  if (user.username === 'admin' && newRole !== 'admin') throw new Error('O Administrador principal não pode ser rebaixado.')
 
   user.role = newRole === 'admin' ? 'admin' : 'user'
-  saveAllUsers(users)
+  await saveAllUsers(users)
   return users
 }
 
-/**
- * Atualiza nome de usuário pelo administrador
- */
-export function adminUpdateUserName(userId, newName) {
-  const users = getAllUsers()
+export async function adminUpdateUserName(userId, newName) {
+  const users = await getAllUsers()
   const user = users.find(u => u.id === userId)
   if (!user) throw new Error('Usuário não encontrado.')
 
   user.name = newName.trim()
-  saveAllUsers(users)
+  await saveAllUsers(users)
   return users
 }
 
-/**
- * O Administrador redefine a senha de um usuário diretamente
- */
 export async function adminResetPassword(userId, newPassword) {
-  if (!newPassword || newPassword.trim().length < 4) {
-    throw new Error('A nova senha deve ter pelo menos 4 caracteres.')
-  }
+  if (!newPassword || newPassword.trim().length < 4) throw new Error('A nova senha deve ter pelo menos 4 caracteres.')
 
-  const users = getAllUsers()
+  const users = await getAllUsers()
   const user = users.find(u => u.id === userId)
   if (!user) throw new Error('Usuário não encontrado.')
 
   user.passwordHash = await hashPassword(newPassword.trim())
-  saveAllUsers(users)
+  await saveAllUsers(users)
   return true
 }
 
-/**
- * Recuperação de senha autônoma pelo usuário
- */
 export async function recoverPassword({ username, recoveryKey, newPassword }) {
   const cleanUsername = username.trim().toLowerCase()
   if (!cleanUsername) throw new Error('Informe o nome de usuário.')
   if (!recoveryKey || !recoveryKey.trim()) throw new Error('Informe a palavra-chave de recuperação.')
   if (!newPassword || newPassword.trim().length < 4) throw new Error('A nova senha deve ter no mínimo 4 caracteres.')
 
-  const users = getAllUsers()
+  const users = await getAllUsers()
   const user = users.find(u => u.username.toLowerCase() === cleanUsername)
-  if (!user) {
-    throw new Error('Usuário não localizado.')
-  }
+  if (!user) throw new Error('Usuário não localizado.')
 
   const inputKeyHash = await hashPassword(recoveryKey.trim())
-  if (user.recoveryKeyHash !== inputKeyHash) {
-    throw new Error('Palavra-chave de recuperação incorreta. Contate um Administrador se não lembrar.')
-  }
+  if (user.recoveryKeyHash !== inputKeyHash) throw new Error('Palavra-chave de recuperação incorreta. Contate um Administrador se não lembrar.')
 
   user.passwordHash = await hashPassword(newPassword.trim())
-  saveAllUsers(users)
+  await saveAllUsers(users)
   return true
 }
 
-/**
- * Aprova um usuário pendente
- */
-export function approveUser(userId) {
-  const users = getAllUsers()
+export async function approveUser(userId) {
+  const users = await getAllUsers()
   const updated = users.map(u => {
-    if (u.id === userId) {
-      return { ...u, status: 'active' }
-    }
+    if (u.id === userId) return { ...u, status: 'active' }
     return u
   })
-  saveAllUsers(updated)
+  await saveAllUsers(updated)
   return updated
 }
 
-/**
- * Alterna status do usuário (ativo / bloqueado)
- */
-export function toggleUserStatus(userId) {
-  const users = getAllUsers()
+export async function toggleUserStatus(userId) {
+  const users = await getAllUsers()
   const updated = users.map(u => {
     if (u.id === userId) {
       if (u.username === 'admin') throw new Error('Não é possível suspender o Administrador principal.')
@@ -379,44 +308,30 @@ export function toggleUserStatus(userId) {
     }
     return u
   })
-  saveAllUsers(updated)
+  await saveAllUsers(updated)
   return updated
 }
 
-/**
- * Exclui um usuário e seus dados financeiros
- */
-export function deleteUser(userId) {
-  const users = getAllUsers()
+export async function deleteUser(userId) {
+  const users = await getAllUsers()
   const target = users.find(u => u.id === userId)
-  if (target?.username === 'admin') {
-    throw new Error('A conta do Administrador principal não pode ser excluída.')
-  }
+  if (target?.username === 'admin') throw new Error('A conta do Administrador principal não pode ser excluída.')
 
   const updated = users.filter(u => u.id !== userId)
-  saveAllUsers(updated)
+  await saveAllUsers(updated)
   localStorage.removeItem(USER_DATA_PREFIX + userId)
   return updated
 }
 
-/**
- * Retorna contagem de aprovações pendentes
- */
-export function getPendingUsersCount() {
-  const users = getAllUsers()
+export async function getPendingUsersCount() {
+  const users = await getAllUsers()
   return users.filter(u => u.status === 'pending').length
 }
 
-/**
- * Grava a sessão ativa
- */
 export function setSession(user) {
   localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user))
 }
 
-/**
- * Limpa a sessão ativa (Logout)
- */
 export function logoutUser() {
   localStorage.removeItem(SESSION_STORAGE_KEY)
 }
@@ -425,29 +340,34 @@ export function clearSession() {
   localStorage.removeItem(SESSION_STORAGE_KEY)
 }
 
-/**
- * Lê os dados financeiros isolados do usuário
- */
-export function getUserData(userId) {
+export async function getUserData(userId) {
+  if (!userId) return null
   try {
-    const raw = localStorage.getItem(USER_DATA_PREFIX + userId)
-    if (raw) {
-      return JSON.parse(raw)
+    const docRef = doc(db, 'user_financial_data', userId)
+    const docSnap = await getDoc(docRef)
+    if (docSnap.exists()) {
+      const data = docSnap.data()
+      localStorage.setItem(USER_DATA_PREFIX + userId, JSON.stringify(data))
+      return data
     }
+    const raw = localStorage.getItem(USER_DATA_PREFIX + userId)
+    if (raw) return JSON.parse(raw)
   } catch (e) {
-    console.error('Erro ao ler dados do usuário', e)
+    const raw = localStorage.getItem(USER_DATA_PREFIX + userId)
+    if (raw) return JSON.parse(raw)
   }
   return null
 }
 
-/**
- * Salva os dados financeiros isolados do usuário
- */
-export function saveUserData(userId, data) {
+export async function saveUserData(userId, data) {
   if (!userId) return
+  try { localStorage.setItem(USER_DATA_PREFIX + userId, JSON.stringify(data)) } catch (e) {}
   try {
-    localStorage.setItem(USER_DATA_PREFIX + userId, JSON.stringify(data))
+    const docRef = doc(db, 'user_financial_data', userId)
+    // Strip undefined values and complex objects to prevent Firestore errors
+    const cleanData = JSON.parse(JSON.stringify(data))
+    await setDoc(docRef, cleanData)
   } catch (e) {
-    console.error('Erro ao salvar dados do usuário', e)
+    console.error('Error saving user data to Firestore:', e)
   }
 }

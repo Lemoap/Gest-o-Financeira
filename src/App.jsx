@@ -60,8 +60,9 @@ export default function App() {
     }
   }, [darkMode])
 
-  const refreshPendingCount = () => {
-    setPendingUsersCount(getPendingUsersCount())
+  const refreshPendingCount = async () => {
+    const count = await getPendingUsersCount()
+    setPendingUsersCount(count)
   }
 
   // Inicializa autenticação
@@ -100,39 +101,42 @@ export default function App() {
 
   // Sempre que o currentUser mudar, recarrega os dados exclusivos dele e garante propagação
   useEffect(() => {
-    if (currentUser?.id) {
-      const realMonth = new Date().getMonth()     // mês real atual (0-based)
-      const realYear = new Date().getFullYear()
+    async function fetchUserFinancialData() {
+      if (currentUser?.id) {
+        const realMonth = new Date().getMonth()     // mês real atual (0-based)
+        const realYear = new Date().getFullYear()
 
-      const userSpecificData = getUserData(currentUser.id)
-      if (userSpecificData && userSpecificData.months) {
-        syncAllInstallments(userSpecificData.months)
-        // Garante que o mês atual exista, propagando recorrentes do anterior
-        const key = `${realYear}-${realMonth}`
-        if (!userSpecificData.months[key]) {
-          let prevM = realMonth - 1, prevY = realYear
-          if (prevM < 0) { prevM = 11; prevY = realYear - 1 }
-          const prevData = userSpecificData.months[`${prevY}-${prevM}`]
-          if (prevData?.recurringExpenses?.length) {
-            ensureMonthExists(userSpecificData.months, realYear, realMonth)
-            userSpecificData.months[key] = {
-              ...userSpecificData.months[key],
-              recurringExpenses: prevData.recurringExpenses.map(i => ({ ...i, paid: false }))
+        const userSpecificData = await getUserData(currentUser.id)
+        if (userSpecificData && userSpecificData.months) {
+          syncAllInstallments(userSpecificData.months)
+          // Garante que o mês atual exista, propagando recorrentes do anterior
+          const key = `${realYear}-${realMonth}`
+          if (!userSpecificData.months[key]) {
+            let prevM = realMonth - 1, prevY = realYear
+            if (prevM < 0) { prevM = 11; prevY = realYear - 1 }
+            const prevData = userSpecificData.months[`${prevY}-${prevM}`]
+            if (prevData?.recurringExpenses?.length) {
+              ensureMonthExists(userSpecificData.months, realYear, realMonth)
+              userSpecificData.months[key] = {
+                ...userSpecificData.months[key],
+                recurringExpenses: prevData.recurringExpenses.map(i => ({ ...i, paid: false }))
+              }
             }
           }
+          setData(userSpecificData)
+          setCurrentYear(realYear)
+          setCurrentMonth(realMonth)
+        } else {
+          const fresh = JSON.parse(JSON.stringify(initialFinancialData))
+          syncAllInstallments(fresh.months)
+          saveUserData(currentUser.id, fresh)
+          setData(fresh)
+          setCurrentYear(realYear)
+          setCurrentMonth(realMonth)
         }
-        setData(userSpecificData)
-        setCurrentYear(realYear)
-        setCurrentMonth(realMonth)
-      } else {
-        const fresh = JSON.parse(JSON.stringify(initialFinancialData))
-        syncAllInstallments(fresh.months)
-        saveUserData(currentUser.id, fresh)
-        setData(fresh)
-        setCurrentYear(realYear)
-        setCurrentMonth(realMonth)
       }
     }
+    fetchUserFinancialData()
   }, [currentUser?.id])
 
   // Salva no LocalStorage isolado daquele usuário

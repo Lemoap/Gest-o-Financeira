@@ -11,7 +11,8 @@ import {
   LogOut,
   Users,
   Palette,
-  Settings
+  Settings,
+  FileSpreadsheet
 } from 'lucide-react'
 import { MONTH_NAMES } from '../utils/formatters'
 import { AppLogo } from './AppLogo'
@@ -32,7 +33,8 @@ export function Navbar({
   onToggleDarkMode,
   onExportData,
   onImportData,
-  onResetData
+  onResetData,
+  onExportCsv
 }) {
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -163,6 +165,14 @@ export function Navbar({
                 className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <Download className="w-4 h-4" />
+              </button>
+
+              <button 
+                onClick={onExportCsv}
+                title="Exportar Todos os Dados em CSV (Planilha)"
+                className="p-2 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
               </button>
 
               <button 

@@ -14,6 +14,7 @@ import { initialFinancialData } from './data/initialData'
 import { MONTH_NAMES, formatCurrency } from './utils/formatters'
 import { initAuth, logoutUser, getUserData, saveUserData, getPendingUsersCount } from './utils/auth'
 import { getAppSettings, saveAppSettings, resetAppSettings } from './utils/appSettings'
+import { exportAllDataToCsv } from './utils/csvExport'
 import {
   propagateNewInstallment,
   updateInstallmentAcrossMonths,
@@ -283,6 +284,11 @@ export default function App() {
     downloadAnchor.remove()
   }
 
+  // Exportar todos os dados em CSV
+  const handleExportCsv = () => {
+    exportAllDataToCsv(data, appSettings?.appName, currentUser?.username)
+  }
+
   // Importar Backup JSON
   const handleImportData = (e) => {
     const file = e.target.files?.[0]
@@ -365,6 +371,7 @@ export default function App() {
         onExportData={handleExportData}
         onImportData={handleImportData}
         onResetData={handleResetData}
+        onExportCsv={handleExportCsv}
       />
 
       {/* Modal de Edição de Perfil */}

@@ -100,6 +100,7 @@ export default function App() {
     return initialClone
   })
   const [isDataLoaded, setIsDataLoaded] = useState(false)
+  const [dataOwnerId, setDataOwnerId] = useState(null)
 
   // Sempre que o currentUser mudar, recarrega os dados exclusivos dele e garante propagação
   useEffect(() => {
@@ -126,6 +127,7 @@ export default function App() {
             }
           }
           setData(userSpecificData)
+          setDataOwnerId(currentUser.id)
           setCurrentYear(realYear)
           setCurrentMonth(realMonth)
         } else {
@@ -133,6 +135,7 @@ export default function App() {
           syncAllInstallments(fresh.months)
           saveUserData(currentUser.id, fresh)
           setData(fresh)
+          setDataOwnerId(currentUser.id)
           setCurrentYear(realYear)
           setCurrentMonth(realMonth)
         }
@@ -144,10 +147,10 @@ export default function App() {
 
   // Salva no LocalStorage isolado daquele usuário
   useEffect(() => {
-    if (currentUser?.id && data && isDataLoaded) {
+    if (currentUser?.id && data && isDataLoaded && dataOwnerId === currentUser.id) {
       saveUserData(currentUser.id, data)
     }
-  }, [data, currentUser?.id, isDataLoaded])
+  }, [data, currentUser?.id, isDataLoaded, dataOwnerId])
 
   const [currentYear, setCurrentYear] = useState(2026)
   const [currentMonth, setCurrentMonth] = useState(8) // 8 = Setembro
@@ -157,6 +160,8 @@ export default function App() {
     if (confirm(`Deseja sair da conta ${currentUser?.name || currentUser?.username}?`)) {
       logoutUser()
       setCurrentUser(null)
+      setDataOwnerId(null)
+      setIsDataLoaded(false)
     }
   }
 

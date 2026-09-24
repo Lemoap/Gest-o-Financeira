@@ -99,6 +99,7 @@ export default function App() {
     }
     return initialClone
   })
+  const [isDataLoaded, setIsDataLoaded] = useState(false)
 
   // Sempre que o currentUser mudar, recarrega os dados exclusivos dele e garante propagação
   useEffect(() => {
@@ -135,6 +136,7 @@ export default function App() {
           setCurrentYear(realYear)
           setCurrentMonth(realMonth)
         }
+        setIsDataLoaded(true)
       }
     }
     fetchUserFinancialData()
@@ -142,10 +144,10 @@ export default function App() {
 
   // Salva no LocalStorage isolado daquele usuário
   useEffect(() => {
-    if (currentUser?.id && data) {
+    if (currentUser?.id && data && isDataLoaded) {
       saveUserData(currentUser.id, data)
     }
-  }, [data, currentUser?.id])
+  }, [data, currentUser?.id, isDataLoaded])
 
   const [currentYear, setCurrentYear] = useState(2026)
   const [currentMonth, setCurrentMonth] = useState(8) // 8 = Setembro

@@ -12,7 +12,7 @@ import { ProfileModal } from './components/ProfileModal'
 import { AppSettingsModal } from './components/AppSettingsModal'
 import { initialFinancialData } from './data/initialData'
 import { MONTH_NAMES, formatCurrency } from './utils/formatters'
-import { initAuth, logoutUser, getUserData, saveUserData, getPendingUsersCount } from './utils/auth'
+import { initAuth, logoutUser, getUserData, saveUserData, getPendingUsersCount, saveLastViewedMonth, getLastViewedMonth } from './utils/auth'
 import { getAppSettings, saveAppSettings, resetAppSettings } from './utils/appSettings'
 import { exportAllDataToCsv } from './utils/csvExport'
 import {
@@ -128,22 +128,36 @@ export default function App() {
           }
           setData(userSpecificData)
           setDataOwnerId(currentUser.id)
-          setCurrentYear(realYear)
-          setCurrentMonth(realMonth)
         } else {
           const fresh = JSON.parse(JSON.stringify(initialFinancialData))
           syncAllInstallments(fresh.months)
           saveUserData(currentUser.id, fresh)
           setData(fresh)
           setDataOwnerId(currentUser.id)
+        }
+
+        // Restaura o último mês visualizado pelo usuário (persiste entre sessões, independente de ter dados ou não)
+        const lastViewed = getLastViewedMonth(currentUser.id)
+        if (lastViewed) {
+          setCurrentYear(lastViewed.year)
+          setCurrentMonth(lastViewed.month)
+        } else {
           setCurrentYear(realYear)
           setCurrentMonth(realMonth)
         }
+
         setIsDataLoaded(true)
       }
     }
     fetchUserFinancialData()
   }, [currentUser?.id])
+
+  // Salva o último mês visualizado sempre que mudar
+  useEffect(() => {
+    if (currentUser?.id && isDataLoaded) {
+      saveLastViewedMonth(currentUser.id, currentYear, currentMonth)
+    }
+  }, [currentMonth, currentYear, currentUser?.id, isDataLoaded])
 
   // Salva no LocalStorage isolado daquele usuário
   useEffect(() => {

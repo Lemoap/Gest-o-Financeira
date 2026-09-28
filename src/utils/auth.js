@@ -88,7 +88,7 @@ export async function initAuth() {
   }
 
   try {
-    const sessionRaw = localStorage.getItem(SESSION_STORAGE_KEY)
+    const sessionRaw = sessionStorage.getItem(SESSION_STORAGE_KEY)
     if (sessionRaw) {
       const sessionUser = JSON.parse(sessionRaw)
       const found = users.find(u => u.id === sessionUser.id)
@@ -329,15 +329,33 @@ export async function getPendingUsersCount() {
 }
 
 export function setSession(user) {
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user))
+  sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user))
 }
 
 export function logoutUser() {
-  localStorage.removeItem(SESSION_STORAGE_KEY)
+  sessionStorage.removeItem(SESSION_STORAGE_KEY)
 }
 
 export function clearSession() {
-  localStorage.removeItem(SESSION_STORAGE_KEY)
+  sessionStorage.removeItem(SESSION_STORAGE_KEY)
+}
+
+const LAST_MONTH_PREFIX = 'fincontrol_last_view_'
+
+export function saveLastViewedMonth(userId, year, month) {
+  if (!userId) return
+  try {
+    localStorage.setItem(LAST_MONTH_PREFIX + userId, JSON.stringify({ year, month }))
+  } catch (e) {}
+}
+
+export function getLastViewedMonth(userId) {
+  if (!userId) return null
+  try {
+    const raw = localStorage.getItem(LAST_MONTH_PREFIX + userId)
+    if (raw) return JSON.parse(raw)
+  } catch (e) {}
+  return null
 }
 
 export async function getUserData(userId) {

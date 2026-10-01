@@ -148,11 +148,12 @@ export function AuthScreen({ onLoginSuccess, appSettings }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950 flex items-center justify-center p-4 selection:bg-emerald-500 selection:text-white">
-      
-      {/* Elementos de fundo decorativos */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 selection:bg-emerald-500 selection:text-white relative bg-slate-950 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: "url('/login-bg.png')" }}
+    >
+      {/* Overlay escuro para garantir que o formulário de login fique sempre legível sobre a imagem */}
+      <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px] pointer-events-none" />
 
       <div className="w-full max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl shadow-black/40 overflow-hidden relative z-10 transition-all">
         

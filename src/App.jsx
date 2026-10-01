@@ -102,6 +102,9 @@ export default function App() {
   const [isDataLoaded, setIsDataLoaded] = useState(false)
   const [dataOwnerId, setDataOwnerId] = useState(null)
 
+  const [currentYear, setCurrentYear] = useState(2026)
+  const [currentMonth, setCurrentMonth] = useState(8) // 8 = Setembro
+
   // Sempre que o currentUser mudar, recarrega os dados exclusivos dele e garante propagação
   useEffect(() => {
     async function fetchUserFinancialData() {
@@ -165,9 +168,6 @@ export default function App() {
       saveUserData(currentUser.id, data)
     }
   }, [data, currentUser?.id, isDataLoaded, dataOwnerId])
-
-  const [currentYear, setCurrentYear] = useState(2026)
-  const [currentMonth, setCurrentMonth] = useState(8) // 8 = Setembro
 
   // Logout seguro
   const handleLogout = () => {

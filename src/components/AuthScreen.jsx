@@ -149,7 +149,7 @@ export function AuthScreen({ onLoginSuccess, appSettings }) {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 selection:bg-emerald-500 selection:text-white relative bg-slate-950 bg-cover bg-center bg-no-repeat"
+      className="min-h-screen flex items-center justify-center p-4 selection:bg-emerald-500 selection:text-white relative bg-slate-950 bg-cover bg-[position:75%_center] md:bg-[position:85%_center] bg-no-repeat"
       style={{ backgroundImage: "url('/login-bg.png')" }}
     >
       {/* Overlay escuro para garantir que o formulário de login fique sempre legível sobre a imagem */}
